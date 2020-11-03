@@ -14,4 +14,6 @@ jobs:
                   node-version: 14
             - run: npm ci
             - run: npm run build
+            - env:
+                  NODE_ENV: prod
             - run: pm2 restart 0

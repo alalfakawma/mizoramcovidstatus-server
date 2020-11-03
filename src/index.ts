@@ -45,8 +45,8 @@ if (process.env.NODE_ENV === 'prod') {
 
     // Get the ssl certs
     https.createServer({
-        key: fs.readFileSync('~/privkey.pem'),
-        cert: fs.readFileSync('~/fullchain.pem')
+        key: fs.readFileSync('/home/admin/privkey.pem'),
+        cert: fs.readFileSync('/home/admin/fullchain.pem')
     }, app).listen(3000);
 } else {
     app.listen(3000);

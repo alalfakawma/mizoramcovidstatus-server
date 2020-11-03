@@ -1,35 +1,35 @@
 import express from 'express';
 import fetch from 'node-fetch';
-import { createClient } from 'redis';
+import { createClient, RedisClient } from 'redis';
+import cron from 'node-cron';
+import cors from 'cors';
+import { promisify } from 'util';
 
 const app: express.Express = express();
 
-const redis = createClient();
+const corsOptions = {
+    origin: 'http://localhost:1234'
+};
+
+app.use(cors(corsOptions));
+
+const redis: RedisClient = createClient();
+const rget: Function = promisify(redis.get).bind(redis);
 
 app.get('/stats', (req: any, res: any) => {
-    const url = 'https://mcovid19.mizoram.gov.in/api/home-stats';
-
-    redis.exists('stats_today', (err: Error | null, reply: number) => {
+    redis.exists('stats_latest', (err: Error | null, reply: number) => {
         if (err) res.send(500).send(err);
-
         if (reply) {
-            // if exists, get it
-            redis.get('stats_today', (err: Error | null, data: string | null) => {
-                if (err) res.status(500).send(err);
+            rget('stats_latest').then((data: any) => {
                 res.status(200).json(JSON.parse(data as string));
+            }).catch((e: Error) => {
+                res.status(500).send(e);
             });
         } else {
-            // not there? fetch it
-            fetch(url).then(res => {
-                if (!res.ok) {
-                    throw new Error('There was an error in fetching the data, status: ' + res.status);
-                }
-                return res.json();
-            }).then(data => {
-                redis.set('stats_today', JSON.stringify(data.stats));
-                res.status(200).json(data.stats);
+            fetchLatestData().then(rdata => {
+                res.status(200).send(rdata);
             }).catch(e => {
-                res.status(500).send(e);
+                console.error(e);
             });
         }
     });
@@ -37,3 +37,68 @@ app.get('/stats', (req: any, res: any) => {
 
 // Listen on port 3000
 app.listen(3000);
+
+cron.schedule('0 */15 * * * *', fetchLatestData); 
+
+/*
+ * Fetch the latest data
+ *
+ * @return void
+ */
+function fetchLatestData(): Promise<object> {
+    return new Promise((res, rej) => {
+        const url = 'https://mcovid19.mizoram.gov.in/api/home-stats';
+
+        fetch(url).then(res => {
+            if (!res.ok) {
+                throw new Error('There was an error in fetching the data, status: ' + res.status);
+            }
+            return res.json();
+        }).then(data => {
+            console.log('Data fetched on: ' + (new Date()).toLocaleString());
+
+            rget('stats_latest').then((rdata: string | null) => {
+                if (rdata !== null) {
+                    const jdata = JSON.parse(rdata);
+
+                    // Check for changed values
+                    if (!objectCompare(['samplesTestedPositive', 'personsHospitalised', 'deaths', 'recovered'], data.stats, jdata)) {
+                        // If changed values are detected add 'stats_old' with the old data and save the new data
+                        redis.set('stats_old', rdata);
+                        redis.set('stats_latest', JSON.stringify(data.stats));
+                    }
+                } else {
+                    // If the data is null, just set the data
+                    redis.set('stats_latest', JSON.stringify(data.stats));
+                    res(data.stats);
+                }
+            }).catch((e: Error) => {
+                throw new Error('Error ' + e);
+            });
+        }).catch(e => {
+            console.error(e);
+            rej(e);
+        });
+    });
+}
+
+/*
+ * Check keys of objects
+ * return false if atleast 1 key does not match
+ * return true if all keys are the same
+ *
+ * @param key Array<string> | string
+ * @param obj1 { [key: string]: string }
+ * @param obj2 { [key: string]: string }
+ * @return boolean
+ */
+function objectCompare(key: Array<string> | string, obj1: { [key: string]: string }, obj2: { [key: string]: string }): boolean {
+    if (Array.isArray(key)) {
+        for (let i = 0; i < key.length; i++) {
+            if (obj1[key[i]] !== obj2[key[i]]) return false;
+        }
+    } else {
+        if (obj1[key] !== obj2[key]) return false;
+    }
+    return true;
+}

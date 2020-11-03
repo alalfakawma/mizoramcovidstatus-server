@@ -1,0 +1,17 @@
+name: deploy
+
+on:
+    push:
+        branches: ["master"]
+
+jobs:
+    build-and-deploy:
+        runs-on: self-hosted
+        steps:
+            - uses: actions/checkout@v2
+            - uses: actions/setup-node@v1
+              with:
+                  node-version: 14
+            - run: npm ci
+            - run: npm run build
+            - run: pm2 restart 0

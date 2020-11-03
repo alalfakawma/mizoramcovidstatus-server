@@ -3,12 +3,15 @@ import fetch from 'node-fetch';
 import { createClient, RedisClient } from 'redis';
 import cron from 'node-cron';
 import cors from 'cors';
+import dotenv from 'dotenv';
 import { promisify } from 'util';
+
+dotenv.config();
 
 const app: express.Express = express();
 
 const corsOptions = {
-    origin: 'http://localhost:1234'
+    origin: process.env.CORS_ORIGIN
 };
 
 app.use(cors(corsOptions));
@@ -35,8 +38,20 @@ app.get('/stats', (req: any, res: any) => {
     });
 });
 
-// Listen on port 3000
-app.listen(3000);
+// server listen
+if (process.env.NODE_ENV === 'prod') {
+    const fs = require('fs');
+    const https = require('https');
+
+    // Get the ssl certs
+    https.createServer({
+        key: fs.readFileSync('../privkey.pem'),
+        cert: fs.readFileSync('../fullchain.pem')
+    }, app).listen(3000);
+} else {
+    app.listen(3000);
+}
+
 
 cron.schedule('0 */15 * * * *', fetchLatestData); 
 

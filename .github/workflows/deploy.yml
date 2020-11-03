@@ -8,12 +8,12 @@ jobs:
     build-and-deploy:
         runs-on: self-hosted
         steps:
+            - env:
+                  NODE_ENV: prod
             - uses: actions/checkout@v2
             - uses: actions/setup-node@v1
               with:
                   node-version: 14
             - run: npm ci
             - run: npm run build
-            - env:
-                  NODE_ENV: prod
             - run: pm2 restart 0

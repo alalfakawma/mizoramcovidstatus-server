@@ -43,7 +43,7 @@ cron.schedule('0 */15 * * * *', fetchLatestData);
 /*
  * Fetch the latest data
  *
- * @return void
+ * @return Promise<object>
  */
 function fetchLatestData(): Promise<object> {
     return new Promise((res, rej) => {

@@ -3,16 +3,20 @@ import fetch from 'node-fetch';
 import { createClient, RedisClient } from 'redis';
 import cron from 'node-cron';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import { promisify } from 'util';
 
-dotenv.config();
-
 const app: express.Express = express();
+let corsOptions;
 
-const corsOptions = {
-    origin: process.env.CORS_ORIGIN
-};
+if (process.env.NODE_ENV === 'prod') {
+    corsOptions = {
+        origin: process.env.ORIGIN
+    };
+} else {
+    corsOptions = {
+        origin: 'http://localhost:1234'
+    };
+}
 
 app.use(cors(corsOptions));
 

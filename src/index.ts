@@ -32,7 +32,7 @@ app.get('/stats', (req: any, res: any) => {
                 rget('stats_old').then((old: string | null) => {
                     const payload = {
                         latest: JSON.parse(data as string),
-                        old: old
+                        old: JSON.parse(old as string)
                     };
                     res.status(200).json(payload);
                 }).catch((e: Error) => {

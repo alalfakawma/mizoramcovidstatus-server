@@ -28,7 +28,17 @@ app.get('/stats', (req: any, res: any) => {
         if (err) res.send(500).send(err);
         if (reply) {
             rget('stats_latest').then((data: any) => {
-                res.status(200).json(JSON.parse(data as string));
+                // Get 'stats_old' if it exists
+                rget('stats_old').then((old: string | null) => {
+                    const payload = {
+                        latest: JSON.parse(data as string),
+                        old: old
+                    };
+                    res.status(200).json(payload);
+                }).catch((e: Error) => {
+                    res.status(200).json(JSON.parse(data as string));
+                    console.error(e);
+                });
             }).catch((e: Error) => {
                 res.status(500).send(e);
             });
@@ -74,7 +84,7 @@ function fetchLatestData(): Promise<object> {
             }
             return res.json();
         }).then(data => {
-            console.log('Data fetched on: ' + (new Date()).toLocaleString());
+            console.info('Data fetched on: ' + (new Date()).toLocaleString());
 
             rget('stats_latest').then((rdata: string | null) => {
                 if (rdata !== null) {
@@ -83,7 +93,9 @@ function fetchLatestData(): Promise<object> {
                     // Check for changed values
                     if (!objectCompare(['samplesTestedPositive', 'personsHospitalised', 'deaths', 'recovered'], data.stats, jdata)) {
                         // If changed values are detected add 'stats_old' with the old data and save the new data
+                        // Persist stats_old for 10 hours
                         redis.set('stats_old', rdata);
+                        redis.expire('stats_old', 36000);
                         redis.set('stats_latest', JSON.stringify(data.stats));
                     }
                 } else {

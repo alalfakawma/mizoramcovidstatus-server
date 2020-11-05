@@ -1,8 +1,8 @@
 import express from 'express';
-import fetch from 'node-fetch';
 import { createClient, RedisClient } from 'redis';
 import cron from 'node-cron';
 import cors from 'cors';
+import axios from 'axios';
 import { promisify } from 'util';
 
 const app: express.Express = express();
@@ -78,12 +78,7 @@ function fetchLatestData(): Promise<object> {
     return new Promise((res, rej) => {
         const url = 'https://mcovid19.mizoram.gov.in/api/home-stats';
 
-        fetch(url).then(res => {
-            if (!res.ok) {
-                throw new Error('There was an error in fetching the data, status: ' + res.status);
-            }
-            return res.json();
-        }).then(data => {
+        axios(url).then(({ data }) => {
             console.info('Data fetched on: ' + (new Date()).toLocaleString());
 
             rget('stats_latest').then((rdata: string | null) => {
@@ -107,8 +102,8 @@ function fetchLatestData(): Promise<object> {
                 throw new Error('Error ' + e);
             });
         }).catch(e => {
-            console.error(e);
             rej(e);
+            console.error(e);
         });
     });
 }
